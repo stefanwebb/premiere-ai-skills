@@ -1,0 +1,17 @@
+{
+  "name": "premiere-ai-skills",
+  "owner": {
+    "name": "Stefan Webb"
+  },
+  "metadata": {
+    "description": "Claude Code skills for driving Adobe Premiere Pro and AI-assisted video-production workflows via premiere-cli and premiere-ai"
+  },
+  "plugins": [
+    {
+      "name": "premiere-ai-skills",
+      "source": "./",
+      "description": "Claude Code skills for driving Adobe Premiere Pro and AI-assisted video-production workflows via premiere-cli and premiere-ai",
+      "version": "0.1.2"
+    }
+  ]
+}

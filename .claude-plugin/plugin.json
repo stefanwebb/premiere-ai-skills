@@ -1,0 +1,14 @@
+{
+  "name": "premiere-ai-skills",
+  "displayName": "Premiere AI Skills",
+  "version": "0.1.2",
+  "description": "Claude Code skills for driving Adobe Premiere Pro and AI-assisted video-production workflows via premiere-cli and premiere-ai",
+  "author": {
+    "name": "Stefan Webb",
+    "email": "info@stefanwebb.me"
+  },
+  "homepage": "https://github.com/stefanwebb/premiere-ai-skills",
+  "repository": "https://github.com/stefanwebb/premiere-ai-skills",
+  "license": "CC-BY-SA-4.0",
+  "keywords": ["premiere-pro", "adobe", "video-editing", "automation", "transcription"]
+}
