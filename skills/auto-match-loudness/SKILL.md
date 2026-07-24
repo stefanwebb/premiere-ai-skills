@@ -80,8 +80,13 @@ open, or just gives it focus if it already was.
     premiere-cli desktop-take-screenshot /tmp/step1-menubar.png
 
 Read this one at full size to locate "Window" in the app menu bar (top
-of screen). Click it, screenshot again to find "Essential Sound" in the
-opened menu, and click that:
+of screen). If macOS's menu bar is set to auto-hide, this screenshot
+will show Premiere's own UI running right up to the top edge with no
+system menu bar visible at all — `desktop-move-mouse --x 100 --y 1` to
+nudge the cursor to the very top of the screen and re-screenshot to
+reveal it before proceeding (live-tested 2026-07-24: this reliably
+reveals it). Click "Window", screenshot again to find "Essential Sound"
+in the opened menu, and click that:
 
     premiere-cli desktop-click-mouse --x <window_x/scale> --y <window_y/scale>
     premiere-cli desktop-take-screenshot /tmp/step1-windowmenu.png
@@ -95,33 +100,42 @@ rather than guessing an offset.
 
     premiere-cli desktop-take-screenshot /tmp/step1-confirm.png
 
-### 2. Ensure Audio Type is "Dialog"
+### 2. Ensure Audio Type is "Dialogue"
 
 The Audio Type reads out just under the clip name near the top of the
-panel. Crop to that region:
+panel (labelled "Dialogue" on this build, not "Dialog"). Crop to that
+region:
 
     premiere-cli desktop-take-screenshot /tmp/step2.png
     python3 -c "from PIL import Image; Image.open('/tmp/step2.png').crop((x0,y0,x1,y1)).save('/tmp/step2_crop.png')"
 
-If it already reads "Dialog", skip to step 3. Otherwise click it to open
-the Audio Type selector, screenshot+crop to confirm the options appeared,
-click "Dialog", then screenshot+crop the same region again to confirm it
-now reads "Dialog". Reuse this crop box for later steps' clip-name/type
-sanity checks if useful.
+If it already reads "Dialogue", skip to step 3. Otherwise click it to
+open the Audio Type selector, screenshot+crop to confirm the options
+appeared, click "Dialogue", then screenshot+crop the same region again
+to confirm it now reads "Dialogue". Reuse this crop box for later steps'
+clip-name/type sanity checks if useful.
 
 ### 3. Locate and expand "Loudness"
 
 The "Loudness" section sits between "Enhance Speech" (above) and
-"Repair" (below) in the panel's scrollable list, and may not be visible
-without scrolling. Take a full-frame screenshot, crop to the panel's
-scrollable list area, and check whether "Loudness" is visible:
+"Repair" (below) in the panel's list, and is commonly pushed below the
+visible area by "Enhance Speech" being expanded above it. **There is no
+`premiere-cli` scroll primitive** — no mouse-wheel command, and neither
+clicking the scrollbar track nor `desktop-press-key --key pagedown`
+moves this panel's content (live-tested 2026-07-24, both no-ops). The
+reliable way to reveal "Loudness" is to collapse whichever section(s)
+above it are expanded, starting with "Enhance Speech": take a full-frame
+screenshot, crop to the panel, and check whether "Loudness" is visible:
 
     premiere-cli desktop-take-screenshot /tmp/step3-1.png
     python3 -c "from PIL import Image; Image.open('/tmp/step3-1.png').crop((x0,y0,x1,y1)).save('/tmp/step3-1_crop.png')"
 
-If it isn't visible, scroll the panel (e.g. by scrolling the mouse wheel
-over the panel, or dragging its scrollbar if visible) and re-screenshot
-until "Loudness" appears between "Enhance Speech" and "Repair".
+If it isn't visible, click "Enhance Speech"'s disclosure triangle to
+collapse it (its own contents don't need to be touched for this skill),
+then re-screenshot+crop — this alone was sufficient to reveal Loudness,
+Repair, and Clarity in live testing, with no scrolling involved. If
+Loudness is still not visible after that, collapse the next expanded
+section above it the same way.
 
 Once visible, check its disclosure triangle: pointing **right** means
 collapsed, pointing **down** means expanded. If collapsed, click the
