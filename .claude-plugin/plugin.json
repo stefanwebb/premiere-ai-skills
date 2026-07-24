@@ -1,7 +1,7 @@
 {
   "name": "premiere-ai-skills",
   "displayName": "Premiere AI Skills",
-  "version": "0.1.2",
+  "version": "0.2.0",
   "description": "Claude Code skills for driving Adobe Premiere Pro and AI-assisted video-production workflows via premiere-cli and premiere-ai",
   "author": {
     "name": "Stefan Webb",

@@ -26,6 +26,12 @@ pip install premiere-ai      # into whichever env you run automation from
 /plugin install premiere-ai-skills@premiere-ai-skills
 ```
 
+Two skills need extra setup beyond the above — see each skill's own file
+for details: `desktop-set-input-lut` needs `premiere-cli`'s optional
+`macos-desktop` extra plus a macOS Accessibility permission grant;
+`calibrate-lut` needs the `mlx-community/sam3-4bit` model downloaded via
+`hf download`.
+
 ## Skills
 
 | Skill | Wraps | Purpose |
@@ -35,6 +41,8 @@ pip install premiere-ai      # into whichever env you run automation from
 | `create-empty-premiere-project` | `premiere-cli` | Scaffold a fresh Premiere Pro project from the bundled template |
 | `remove-pauses-from-track` | `premiere-ai` + `premiere-cli` | Ripple-delete silences from one track, keeping a linked video track in sync |
 | `calculate-sync-offset` | `premiere-ai` | Compute the audio/video sync offset for a camera + external-mic take |
+| `desktop-set-input-lut` | `premiere-cli` (macOS only) | Load a new `.cube` file onto a clip's Lumetri Input LUT by driving Premiere's native UI |
+| `calibrate-lut` | `premiere-ai` | Build a `.cube` correction LUT from a photo of a ColorChecker chart (video or classic page) |
 
 ## Scope
 
