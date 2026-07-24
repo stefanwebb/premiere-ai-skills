@@ -41,6 +41,7 @@ downloaded via `hf download`.
 | `calculate-sync-offset` | `premiere-ai` | Compute the audio/video sync offset for a camera + external-mic take |
 | `calibrate-lut` | `premiere-ai` | Build a `.cube` correction LUT from a photo of a ColorChecker chart (video or classic page) |
 | `correct-color` | `premiere-cli` + `premiere-ai` | End-to-end: extract a ColorChecker frame from a sequence, build a LUT (applying it is currently a manual step — see the skill's own note) |
+| `auto-match-loudness` | `premiere-cli` | Select a clip and apply Essential Sound's Auto-Match Loudness by driving the native panel UI (no API exists for this feature) |
 
 > `desktop-set-input-lut` (which drove Premiere's native UI to set a clip's
 > Lumetri Input LUT) was removed 2026-07-23 pending a rebuild on top of
