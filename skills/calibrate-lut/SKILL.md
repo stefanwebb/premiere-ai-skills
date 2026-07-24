@@ -45,13 +45,23 @@ Video page:
 
 Classic page:
 
-    calibrate-lut-classic chart_photo.png
-    calibrate-lut-classic chart_photo.png --output corrected.cube --lut-size 33
     calibrate-lut-classic chart_photo.png --matrix-method "Finlayson 2015" --matrix-degree 2
+    calibrate-lut-classic chart_photo.png --matrix-method "Finlayson 2015" --matrix-degree 2 --output corrected.cube --lut-size 33
 
-Both default `--output` to `<image>.cube` next to the input photo if
-`--output`/`-o` isn't given. Full flag reference: `calibrate-lut --help` /
+Default `calibrate-lut-classic` to `--matrix-method "Finlayson 2015"
+--matrix-degree 2` unless the user asks for a different matrix method or
+degree. Full flag reference: `calibrate-lut --help` /
 `calibrate-lut-classic --help`.
+
+Both commands default `--output` to `<image>.cube` next to the input
+photo if `--output`/`-o` isn't given — fine when the chart photo already
+lives in the Premiere Pro project's own folder, but **if the chart photo
+is a frame extracted to a scratch/tmp location** (e.g. pulled from the
+sequence via a temporary export), that default would save the `.cube`
+into the tmp directory too. In that case always pass `--output`
+explicitly, pointing at the Premiere Pro project's own folder (e.g.
+`assets/luts/corrected.cube` or wherever the project keeps LUTs) —
+never leave the calibrated `.cube` sitting in a tmp directory.
 
 ## Reading the output
 
