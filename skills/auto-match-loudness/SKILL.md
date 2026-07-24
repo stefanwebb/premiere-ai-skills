@@ -13,37 +13,39 @@ looking at screenshots and clicking what's there.
 
 ## Inputs
 
-Ask the user explicitly before assuming either of these — do not
-silently default:
+Default target, no need to ask: the **clip at the current playhead**.
+Only ask the user explicitly if they've given some other indication of
+which clip they mean (e.g. naming a track/timecode themselves) — don't
+silently reinterpret that.
 
-- **Currently selected clip**, or **another clip** specified by
-  sequence, track, and playhead position (`MM:SS:FF`).
-
-If they want another clip, resolve it via `premiere-cli` (see the
-`premiere-cli` skill for exact flags) before touching the UI:
+Resolve the default via `premiere-cli`:
 
     premiere-cli get-premiere-state
 
-reads the active sequence and current selection in one call. If a
-different sequence/track/position was given instead, move the playhead
-and re-derive the clip there:
+reads the active sequence and current selection in one call. If
+`selection` is already non-empty with exactly one entry, Essential Sound
+already reflects it — don't touch selection at all, skip straight to
+"Driving the UI" below.
 
-    premiere-cli move-playhead --timecode <MM:SS:FF> --sequence-name "..."
-    premiere-cli get-active-sequence --sequence-name "..."
+Otherwise, find the clip at the current playhead directly:
 
-Find the one clip on the target audio track where
-`startSeconds <= t < endSeconds`, then select it explicitly (Essential
-Sound always reflects the *current selection*, so there must be exactly
-one clip selected):
+    premiere-cli get-clip-at-playhead --track-type audio --sequence-name "..."
+
+This returns the audio clip(s) at `playheadSeconds` in one call — no
+need to derive it manually from `startSeconds`/`endSeconds`. If it
+returns exactly one clip, select it (Essential Sound always reflects the
+*current selection*, so there must be exactly one clip selected):
 
     premiere-cli deselect-all-clips --sequence-name "..."
-    premiere-cli set-clip-selection --track-type audio --track-index N --clip-index N \
+    premiere-cli set-clip-selection --track-type audio --track-index <trackIndex> --clip-index <clipIndex> \
       --select --sequence-name "..."
 
-Confirm `actualSelected: true` before continuing. If the user meant the
-currently selected clip, just confirm via `get-premiere-state` that
-`selection` is non-empty and has exactly one entry — don't touch
-selection at all in that case.
+Confirm `actualSelected: true` before continuing. If `get-clip-at-playhead`
+returns zero or more than one clip, or the user asked for a different
+clip (sequence/track/timecode), resolve that explicitly instead:
+
+    premiere-cli move-playhead --timecode <MM:SS:FF> --sequence-name "..."
+    premiere-cli get-clip-at-playhead --track-type audio --sequence-name "..."
 
 ## Driving the UI
 
