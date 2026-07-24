@@ -43,6 +43,7 @@ for details: `desktop-set-input-lut` needs `premiere-cli`'s optional
 | `calculate-sync-offset` | `premiere-ai` | Compute the audio/video sync offset for a camera + external-mic take |
 | `desktop-set-input-lut` | `premiere-cli` (macOS only) | Load a new `.cube` file onto a clip's Lumetri Input LUT by driving Premiere's native UI |
 | `calibrate-lut` | `premiere-ai` | Build a `.cube` correction LUT from a photo of a ColorChecker chart (video or classic page) |
+| `correct-color` | `premiere-cli` + `premiere-ai` | End-to-end: extract a ColorChecker frame from a sequence, build a LUT, and apply it to the clip |
 
 ## Scope
 
