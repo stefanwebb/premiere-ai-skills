@@ -26,11 +26,9 @@ pip install premiere-ai      # into whichever env you run automation from
 /plugin install premiere-ai-skills@premiere-ai-skills
 ```
 
-Two skills need extra setup beyond the above — see each skill's own file
-for details: `desktop-set-input-lut` needs `premiere-cli`'s optional
-`macos-desktop` extra plus a macOS Accessibility permission grant;
-`calibrate-lut` needs the `mlx-community/sam3-4bit` model downloaded via
-`hf download`.
+One skill needs extra setup beyond the above — see its own file for
+details: `calibrate-lut` needs the `mlx-community/sam3-4bit` model
+downloaded via `hf download`.
 
 ## Skills
 
@@ -41,9 +39,16 @@ for details: `desktop-set-input-lut` needs `premiere-cli`'s optional
 | `create-empty-premiere-project` | `premiere-cli` | Scaffold a fresh Premiere Pro project from the bundled template |
 | `remove-pauses-from-track` | `premiere-ai` + `premiere-cli` | Ripple-delete silences from one track, keeping a linked video track in sync |
 | `calculate-sync-offset` | `premiere-ai` | Compute the audio/video sync offset for a camera + external-mic take |
-| `desktop-set-input-lut` | `premiere-cli` (macOS only) | Load a new `.cube` file onto a clip's Lumetri Input LUT by driving Premiere's native UI |
 | `calibrate-lut` | `premiere-ai` | Build a `.cube` correction LUT from a photo of a ColorChecker chart (video or classic page) |
-| `correct-color` | `premiere-cli` + `premiere-ai` | End-to-end: extract a ColorChecker frame from a sequence, build a LUT, and apply it to the clip |
+| `correct-color` | `premiere-cli` + `premiere-ai` | End-to-end: extract a ColorChecker frame from a sequence, build a LUT (applying it is currently a manual step — see the skill's own note) |
+
+> `desktop-set-input-lut` (which drove Premiere's native UI to set a clip's
+> Lumetri Input LUT) was removed 2026-07-23 pending a rebuild on top of
+> `premiere-cli`'s generic `desktop-*` UI-automation primitives
+> (`desktop-take-screenshot`, `desktop-press-key`, `desktop-enter-text`,
+> `desktop-move-mouse`, `desktop-click-mouse`, etc.) plus AI vision-language
+> screen understanding, rather than hand-written Accessibility-tree
+> navigation specific to one control.
 
 ## Scope
 

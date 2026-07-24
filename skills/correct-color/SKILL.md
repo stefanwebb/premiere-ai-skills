@@ -1,16 +1,22 @@
 ---
 name: correct-color
-description: Use when asked to color-correct or color-calibrate a Premiere Pro clip against a ColorChecker chart already sitting in the timeline, e.g. "correct color for this clip" or "calibrate against the chart at 00:01:30". End-to-end: extracts the chart frame, builds a LUT, and applies it to the clip — see calibrate-lut / desktop-set-input-lut for the individual steps if only one of them is needed.
+description: Use when asked to color-correct or color-calibrate a Premiere Pro clip against a ColorChecker chart already sitting in the timeline, e.g. "correct color for this clip" or "calibrate against the chart at 00:01:30". Extracts the chart frame, builds a LUT, and selects the target clip — see calibrate-lut for the LUT-building step if only that's needed. NOTE: applying the built LUT to the clip is currently a manual step (see step 5) — the automation for that was removed pending a rebuild.
 ---
 
 # /correct-color
 
-End-to-end color calibration against a ColorChecker chart that's already
-been shot into a Premiere Pro sequence: extracts the frame containing the
-chart, fits a correction LUT from it (`calibrate-lut`), and loads that LUT
-onto the clip's Lumetri Input LUT (`desktop-set-input-lut`). Use this when
-the chart is on the timeline already; if you just have a standalone chart
-photo, go straight to the `calibrate-lut` skill instead.
+Color calibration against a ColorChecker chart that's already been shot
+into a Premiere Pro sequence: extracts the frame containing the chart,
+fits a correction LUT from it (`calibrate-lut`), and selects the target
+clip so the LUT can be applied. Use this when the chart is on the timeline
+already; if you just have a standalone chart photo, go straight to the
+`calibrate-lut` skill instead.
+
+**Current limitation:** the automated "load this LUT onto the clip" step
+(`desktop-set-input-lut`) was removed 2026-07-23 pending a rebuild on
+`premiere-cli`'s generic `desktop-*` UI-automation primitives plus AI
+vision-language screen understanding. Until that lands, step 5 below is a
+manual hand-off, not an automated command.
 
 ## Inputs
 
@@ -99,14 +105,14 @@ existing selection before selecting the target clip found in step 1:
 
 Confirm `actualSelected: true` in the result before continuing.
 
-## 5. Apply the LUT
+## 5. Apply the LUT (currently manual)
 
-Follow the `desktop-set-input-lut` skill as-is, including its Safety
-section (Premiere must be frontmost, hands off keyboard/mouse):
+There is no automated command for this step right now — tell the user the
+LUT has been built and selected clip is ready, and that they need to apply
+it themselves: Effect Controls > Lumetri Color > Basic Correction > Input
+LUT > Browse…, then choose the `.cube` file from step 3
+(`<project-dir>/color-calibration/corrected_<timecode>.cube`).
 
-    premiere-cli desktop-set-input-lut "<project-dir>/color-calibration/corrected_<timecode>.cube"
-
-Check `actualInputLut` in the result matches `expectedInputLut` before
-declaring success, and report the calibration diagnostics from step 3
-alongside it — an applied LUT built from a poor fit is still worth
-flagging to the user.
+Report the calibration diagnostics from step 3 alongside this hand-off —
+a LUT built from a poor fit is still worth flagging to the user even
+before it's applied.

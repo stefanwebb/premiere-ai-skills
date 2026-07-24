@@ -98,5 +98,10 @@ save the `.cube`. Read these before declaring success:
 ## Applying the result
 
 The `.cube` these commands produce is exactly what Premiere's Lumetri
-Color "Input LUT" consumes — see the `desktop-set-input-lut` skill to
-apply it to a clip.
+Color "Input LUT" consumes. There is currently no automated skill to load
+it onto a clip — the `desktop-set-input-lut` command/skill that used to do
+this was removed 2026-07-23 pending a rebuild on generic `desktop-*`
+UI-automation primitives plus AI vision-language screen understanding.
+Until that lands, load it manually: select the clip, open Effect Controls
+> Lumetri Color > Basic Correction, and set Input LUT > Browse… to the
+produced `.cube` file.
