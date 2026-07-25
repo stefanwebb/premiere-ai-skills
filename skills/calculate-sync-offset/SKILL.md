@@ -52,9 +52,18 @@ Full flag reference: `sync-audio --help`.
       "warnings": []
     }
 
-- **`recommendedOffsetSeconds`** — the amount to shift the mic clip
-  *later* (positive) or *earlier* (negative) to align it with the camera
-  recording.
+- **`recommendedOffsetSeconds`** — `micSeconds - cameraSeconds` for the
+  same spoken word: how far *into* the mic file a moment sits relative to
+  where it sits in the camera file. **Positive means the mic started
+  recording first**, so the mic clip must be shifted *earlier* (or,
+  equivalently, its in-point moved that far into the source) to align
+  with the camera. Negative means the camera started first and the mic
+  clip must be shifted *later*.
+
+  Read the sign off the anchors rather than trusting memory: each anchor
+  reports its own `cameraSeconds` and `micSeconds`, and `micSeconds`
+  being the larger of the two is what a positive offset means. Getting
+  this backwards doubles the error instead of removing it.
 - **`driftFit`** — `null` if fewer than 3 confident anchors were found
   (check `warnings` for why); otherwise `driftMsPerMinute` is the
   sanity-check number — near zero means the two devices' clocks agree
@@ -64,8 +73,18 @@ Full flag reference: `sync-audio --help`.
   few confident anchors exist.
 
 Report the recommended offset and drift rate back to the user in plain
-language, e.g. "shift the mic clip 238ms later; drift is negligible at
-0.7ms/min."
+language, and express the offset as **whole seconds plus a whole number
+of audio samples** at the mic's sample rate — not as a decimal fraction
+of a second. At 48kHz, `samples = round(offsetSeconds * 48000)`, then
+split off the whole seconds:
+
+    6.031709952881989 s  ->  6s + 1522 samples   (289,522 samples total)
+
+e.g. "the mic started 6s + 1522 samples before the camera, so shift the
+mic clip that much earlier; drift is negligible at 0.36ms/min." Samples
+are the unit the offset actually gets applied in (see the `premiere-cli`
+skill's Time precision section), so reporting them avoids a second
+rounding step when it's time to place the clip.
 
 ## Applying the offset
 
@@ -92,3 +111,12 @@ synced sequence built from them. If so, use `premiere-cli` (see the
 Confirm the plan with the user before running it — it mutates the
 sequence — and prefer computing exact trim points from the reported
 offset rather than eyeballing them.
+
+**Do `trim-clip` last, and re-check the in-point after any later edit.**
+`add-to-timeline` and `move-clip-to-track` snap a clip's in-point to a
+video frame boundary — at 25fps that silently rounds the offset by up to
+20ms, which is the same order as the misalignment being corrected. Only
+`trim-clip --in-point-seconds` writes the exact value (it sets ticks
+directly and verifies the read-back), so apply it after the clip is on
+its final track and confirm `inPointSeconds` in the response matches
+`recommendedOffsetSeconds` before declaring the sync done.

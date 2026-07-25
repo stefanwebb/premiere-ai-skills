@@ -35,6 +35,45 @@ on any failure (including the panel being closed). Exit code is 0 for
 `ok: true`, 1 otherwise — but the JSON on stdout is always well-formed
 either way, so parse it directly rather than branching only on exit code.
 
+## Time precision: ticks, samples, and frame snapping
+
+Every command takes time as a decimal `--*-seconds` value, but Premiere
+stores time internally as **ticks**, at a fixed
+**254,016,000,000 ticks per second**. That number is chosen to divide
+evenly by every common frame rate and sample rate, which has two
+practical consequences (both live-verified 2026-07-24 on a 25fps
+sequence with 48kHz audio):
+
+**1. Sample-exact positions are addressable.** At 48kHz,
+`254016000000 / 48000 = 5,292,000` ticks per sample — an exact integer,
+so every sample boundary is representable with no rounding. To place
+something at sample *N*, pass `N / 48000` as the seconds value:
+
+    # sample 289522 = 6s + 1522 samples
+    premiere-cli trim-clip --track-type audio --track-index 0 \
+      --clip-index 0 --in-point-seconds 6.03170833333333
+
+Read-back confirmed exactly 289,522.0 samples. The tick grid is *finer*
+than a sample (5.29M ticks per sample), so nothing rounds to sample
+boundaries on your behalf — a computed offset like `6.031709952881989`
+lands 0.078 of a sample past a boundary and stays there. Round to a whole
+sample yourself when you want a clean audio position.
+
+**2. Placement commands snap to the VIDEO frame grid; `trim-clip` does
+not.** `add-to-timeline` and `move-clip-to-track` quantize a clip's
+in-point to a frame boundary — at 25fps that is 40ms, or ~1,920 samples
+at 48kHz — silently discarding sub-frame precision even on an audio-only
+clip. Observed: an in-point set to 6.0317 became `6` after
+`add-to-timeline`, then `6.04` after a later `move-clip-to-track`.
+
+Only `trim-clip --in-point-seconds` writes the exact value (it sends a
+ticks string and verifies the read-back). So for anything needing
+sub-frame accuracy — audio sync above all — **apply `trim-clip` last,
+after the clip is on its final track, and re-apply it after any
+subsequent placement command.** Confirm `inPointSeconds` in the response
+before treating the position as correct; `changes.inPoint.verified`
+reports whether the read-back matched.
+
 ## Available commands
 
 > **2026-07-17 correction — undo:** several entries below say "undo is
@@ -1132,7 +1171,7 @@ live-tested.
 - `premiere-cli add-to-timeline --node-id ID|--name NAME --track-type video|audio --track-index N --start-seconds N --mode insert|overwrite [--sequence-name ...]` — UPDATED 2026-07-17: places a project item via the TRACK object's own `track.insertClip(item, TimeObject)`/`overwriteClip(item, TimeObject)`, which HONORS the track index (probe-verified — the sequence-level `seq.insertClip()`/`overwriteClip()` ignore their video-track index on this build and are kept only as a fallback; check `placedVia`/`trackHonored` in the result). For video placements, auto-scans every audio track afterward for the source's own linked-audio clip landing near the requested time and removes it (the auto-linked-audio trap in `PREMIERE_API_NOTES.md`) — reports `linkedAudioCleanup`. The updated placement path takes effect on the next panel reload.
 - `premiere-cli remove-from-timeline --track-type ... --track-index N --clip-index N --ripple true|false [--sequence-name ...]` — **Destructive**: permanently removes a clip via `clip.remove(ripple, false)`; verified via a `numItems` drop of exactly one.
 - `premiere-cli move-clip --track-type ... --track-index N --clip-index N --start-seconds N [--sequence-name ...]` — moves a clip to a new absolute start time on the SAME track via `clip.start` assignment (does not change track, per the documented API limitation); verified via a read-back.
-- `premiere-cli trim-clip --track-type ... --track-index N --clip-index N [--in-point-seconds N] [--out-point-seconds N] [--sequence-name ...]` — trims in and/or out point (source-media-relative seconds); each field verified independently.
+- `premiere-cli trim-clip --track-type ... --track-index N --clip-index N [--in-point-seconds N] [--out-point-seconds N] [--sequence-name ...]` — trims in and/or out point (source-media-relative seconds); each field verified independently. The only command that writes a tick-exact, sub-frame in-point — see [Time precision](#time-precision-ticks-samples-and-frame-snapping).
 - `premiere-cli split-clip --track-type ... --track-index N --seconds N [--sequence-name ...]` — razors whichever clip covers a sequence-time position via QE `qeTrack.razor()`; verified via the track's clip count increasing by exactly one.
 - `premiere-cli duplicate-clip --track-type ... --track-index N --clip-index N [--target-start-seconds N] [--sequence-name ...]` — inserts a new instance of the clip's own project item onto the SAME track (ripple insert, so never destructive), defaulting the target start to right after the original's own end.
 - `premiere-cli replace-clip --track-type ... --track-index N --clip-index N --replacement-node-id ID|--replacement-name NAME [--sequence-name ...]` — **Destructive**: removes a clip and reinserts a different project item at the same start time; verified by re-finding a clip there whose media path matches the replacement.
