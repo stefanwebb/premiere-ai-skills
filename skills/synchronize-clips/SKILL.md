@@ -1,15 +1,15 @@
 ---
-name: calculate-sync-offset
-description: Use when asked to compute, check, or verify the audio-sync offset between a camera recording and a high-quality external mic recording of the same take, e.g. "sync the mic audio to the camera footage" or "check if project007's audio needs realigning". Also use to sanity-check for clock drift between the two recording devices.
+name: synchronize-clips
+description: Use when asked to synchronize, align, or sync a camera recording with a high-quality external mic recording of the same take, or to compute, check, or verify the audio-sync offset between them, e.g. "sync the mic audio to the camera footage" or "check if project007's audio needs realigning". Also use to sanity-check for clock drift between the two recording devices.
 ---
 
-# /calculate-sync-offset
+# /synchronize-clips
 
 Computes the offset (and a clock-drift sanity check) needed to align a
 high-quality mic recording with a camera recording of the same speech, by
 combining word-level ASR timestamps with local cross-correlation. Reports
-the result and, when applicable, offers to apply it in Premiere (see
-Applying the offset).
+the result and, when applicable, applies it in Premiere by building a
+synced sequence (see Applying the offset).
 
 ## Running the command
 
@@ -23,6 +23,31 @@ where the camera recording and mic recording live by default (e.g. a
 fixed directory each is imported into) and use those as the default file
 paths. If no such convention is documented, or it doesn't resolve to
 exactly one file per role, ask which files to use rather than guessing.
+
+## Cap the analysis at the first 3 minutes
+
+`sync-audio` transcribes both inputs end to end, so its runtime scales
+with take length — a 20-minute take costs two full 20-minute ASR passes.
+**When either input is longer than 3 minutes, analyse only the first 3
+minutes.** Both recordings start at their own t=0, so an offset measured
+over the head of the take applies to the whole take.
+
+`sync-audio` has no duration flag, so cut 3-minute heads with `ffmpeg`
+first and run against those (audio-only is enough — it never looks at the
+video stream):
+
+    ffmpeg -y -v error -t 180 -i "<camera_file>" -vn -ac 1 -ar 48000 "$TMP/cam-3min.wav"
+    ffmpeg -y -v error -t 180 -i "<mic_file>"          -ac 1 -ar 48000 "$TMP/mic-3min.wav"
+    sync-audio "$TMP/cam-3min.wav" "$TMP/mic-3min.wav"
+
+Put the cuts in a scratch directory, not the project. Apply the resulting
+offset to the **full-length** clips.
+
+The one thing this costs is drift coverage: `driftMsPerMinute` is then
+fitted over 3 minutes and extrapolated across the take. Multiply it by
+the full take length and report the projected total — if that comes out
+to more than a frame, say so and offer a full-length run instead of
+silently trusting the extrapolation.
 
 ## Syncing tracks already in a Premiere sequence
 
@@ -103,14 +128,65 @@ synced sequence built from them. If so, use `premiere-cli` (see the
    clip.
 5. `move-clip-to-track` — move the mic audio clip onto the now-empty
    audio track.
-6. `trim-clip` — trim the video clip and the mic audio clip, applying
-   `recommendedOffsetSeconds`, so both start and end at the same
-   sequence time.
+6. `trim-clip` — set **both the in-point and the out-point** of the video
+   clip and of the mic audio clip, per the arithmetic below.
 7. `link-selection` — re-link the trimmed video and mic audio clips.
 
 Confirm the plan with the user before running it — it mutates the
 sequence — and prefer computing exact trim points from the reported
 offset rather than eyeballing them.
+
+### Both ends, not just the head
+
+Aligning the heads is only half the job. The two devices also *stopped*
+at different times, so after the head trim one clip still overruns the
+other and the sequence ends with video over silence (or audio over
+black). **Trim the tails too, so the two clips are exactly the same
+length.** Get the source durations from `ffprobe` (or
+`get-project-item-info`) and compute all four points up front:
+
+    K  = recommendedOffsetSeconds        # + means the mic started first
+    Dc = camera source duration
+    Dm = mic source duration
+
+    cameraIn  = max(0, -K)               # camera skips its head if it started first
+    micIn     = max(0,  K)               # mic skips its head if it started first
+    L         = min(Dc - cameraIn, Dm - micIn)     # common overlap length
+
+    cameraOut = cameraIn + L
+    micOut    = micIn    + L
+
+Set each head with `trim-clip --in-point-seconds`. **The tails need a
+razor, not a trim** — `trim-clip --out-point-seconds` writes the source
+out-point and reports `verified: true` but leaves the clip its original
+length on the timeline (see the `premiere-cli` skill's Time precision
+section). Cut each clip at `L` and delete the remainder:
+
+    premiere-cli split-clip --track-type video --track-index 0 --seconds <L>
+    premiere-cli remove-from-timeline --track-type video --track-index 0 \
+      --clip-index 1 --ripple false
+
+Pick `L` on a whole video frame (`floor(L * fps) / fps`) so the video cut
+lands cleanly; the audio head keeps its sample-exact in-point either way.
+Both clips then run `[0, L]` on the timeline. Worked example from a real
+take —
+Dc = 1233.600 s, Dm = 1236.753 s, K = +6.032 s (6s + 1522 samples):
+
+    cameraIn  = 0          micIn  = 6.032
+    L         = min(1233.600, 1230.722) = 1230.722
+              -> 1230.72 after flooring to a 25fps frame (30,768 frames)
+    cameraOut = 1230.72    micOut = 1236.752
+
+i.e. the mic loses 6.032 s off its head and the camera loses 2.880 s off
+its tail. Note which clip gets trimmed at which end is not fixed — it
+depends on which device stopped last, so compute it, don't assume.
+
+**Verify before declaring done:** re-read both clips and check they
+report the same `startSeconds` (0) and the same `endSeconds`, and that
+`get-timeline-summary` shows `coveragePercent` 100 on both tracks and a
+`durationSeconds` equal to `L`. Coverage below 100, or a sequence
+duration still equal to the untrimmed length, means a tail survived.
+Re-run `link-selection` afterwards — the razor breaks the A/V link.
 
 **Do `trim-clip` last, and re-check the in-point after any later edit.**
 `add-to-timeline` and `move-clip-to-track` snap a clip's in-point to a

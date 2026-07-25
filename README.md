@@ -38,7 +38,7 @@ downloaded via `hf download`.
 | `premiere-log` | `premiere-log` | Surface automation progress inside the bridge panel |
 | `create-empty-premiere-project` | `premiere-cli` | Scaffold a fresh Premiere Pro project from the bundled template |
 | `remove-pauses-from-track` | `premiere-ai` + `premiere-cli` | Ripple-delete silences from one track, keeping a linked video track in sync |
-| `calculate-sync-offset` | `premiere-ai` | Compute the audio/video sync offset for a camera + external-mic take |
+| `synchronize-clips` | `premiere-ai` + `premiere-cli` | Compute the audio/video sync offset for a camera + external-mic take, then build the synced, equal-length sequence |
 | `calibrate-lut` | `premiere-ai` | Build a `.cube` correction LUT from a photo of a ColorChecker chart (video or classic page) |
 | `correct-color` | `premiere-cli` + `premiere-ai` | End-to-end: extract a ColorChecker frame from a sequence, build a LUT (applying it is currently a manual step — see the skill's own note) |
 | `auto-match-loudness` | `premiere-cli` | Select a clip and apply Essential Sound's Auto-Match Loudness by driving the native panel UI (no API exists for this feature) |

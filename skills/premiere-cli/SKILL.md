@@ -74,6 +74,25 @@ subsequent placement command.** Confirm `inPointSeconds` in the response
 before treating the position as correct; `changes.inPoint.verified`
 reports whether the read-back matched.
 
+**3. `trim-clip --out-point-seconds` does NOT shorten a clip on the
+timeline** (live-tested 2026-07-24). It writes the source out-point and
+reads it back successfully — `verified: true` — but the track item keeps
+its original `endSeconds`, and `get-timeline-summary` still shows the old
+`coveragePercent` and sequence duration. `verified` here means "the
+out-point property took the value", not "the clip got shorter", so it is
+not evidence the edit did what you wanted.
+
+To actually shorten a clip from the tail, razor and delete:
+
+    premiere-cli split-clip --track-type video --track-index 0 --seconds 1230.72
+    premiere-cli remove-from-timeline --track-type video --track-index 0 \
+      --clip-index 1 --ripple false
+
+Then confirm against `get-timeline-summary` — `durationSeconds` and the
+track's `coveragePercent` are what actually move. The in-point path has
+no such problem: trimming the head with `--in-point-seconds` does take
+effect.
+
 ## Available commands
 
 > **2026-07-17 correction — undo:** several entries below say "undo is
