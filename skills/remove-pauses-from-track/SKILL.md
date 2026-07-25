@@ -50,18 +50,41 @@ the currently active project) and read its `frameRate` — needed for step
    defaults, not `remove-pauses`'s own CLI defaults, which are more
    conservative.)
 
+   Most cuts are gated to word-gaps Claude judges to be phrase or sentence
+   boundaries, so a mid-thought hesitation is not clipped. On top of that,
+   **any silence of 1 s or longer is cut wherever it falls** — past a point a
+   pause is not hesitation, it is dead air. Change that threshold with
+   `--always-cut <seconds>`, or `--always-cut 0` to gate strictly on
+   boundaries.
+
 3. **Apply the cuts**:
 
        premiere-cli remove-track-intervals --sequence-name "<name>" \
          --audio-track-index <N> [--video-track-index <M> ...] \
          --intervals-file /tmp/<name>-track<N>.cuts.txt
 
-4. Report the result in plain language — how many intervals were
+4. **Check for dead air left behind.** Extract the resulting track and look
+   for silence the pass should have removed:
+
+       premiere-cli extract-audio-track --sequence-name "<name>" \
+         --audio-track-index <N> --format wav --output /tmp/<name>-after.wav
+
+   Then, in the `premiere-pro` env:
+
+       from premiere_ai.remove_pauses import _detect_silence
+       silence, duration = _detect_silence("/tmp/<name>-after.wav")
+       print(sum(b - a for a, b in silence), "s of silence in", duration, "s")
+
+   A little is expected — cuts are frame-quantised and every kept pause at a
+   boundary counts. Seconds of it, or any single stretch over ~2 s, means
+   something is being missed; report it rather than leaving it.
+
+5. Report the result in plain language — how many intervals were
    applied, how many segments removed, and any `warnings` from the
    result (a track where a segment couldn't be removed is surfaced, not
    silently dropped — the rest of the cuts still succeed).
 
-5. Clean up the temporary files (`.wav`, `.words.json`, `.txt`,
+6. Clean up the temporary files (`.wav`, `.words.json`, `.txt`,
    `.cuts.txt`) created along the way.
 
 ## Notes
