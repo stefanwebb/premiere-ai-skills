@@ -50,18 +50,27 @@ the currently active project) and read its `frameRate` — needed for step
    defaults, not `remove-pauses`'s own CLI defaults, which are more
    conservative.)
 
-   Most cuts are gated to word-gaps Claude judges to be phrase or sentence
-   boundaries, so a mid-thought hesitation is not clipped. On top of that,
-   **any silence of 1 s or longer is cut wherever it falls** — past a point a
-   pause is not hesitation, it is dead air. Change that threshold with
-   `--always-cut <seconds>`, or `--always-cut 0` to gate strictly on
-   boundaries.
+   By default every VAD-confirmed silence is a cut candidate — no
+   ANTHROPIC_API_KEY required. Add `--phrase-boundaries` to instead gate
+   most cuts to word-gaps Claude judges to be phrase or sentence
+   boundaries, so a mid-thought hesitation isn't clipped (this requires
+   ANTHROPIC_API_KEY). Either way, **any silence of 1 s or longer is cut
+   wherever it falls** — past a point a pause is not hesitation, it is
+   dead air. Change that threshold with `--always-cut <seconds>`, or
+   `--always-cut 0` to cut nothing except word-gaps.
 
 3. **Apply the cuts**:
 
        premiere-cli remove-track-intervals --sequence-name "<name>" \
          --audio-track-index <N> [--video-track-index <M> ...] \
          --intervals-file /tmp/<name>-track<N>.cuts.txt
+
+   A "could not reach the Premiere Bridge panel on port 47823 ... timed
+   out" error here does not necessarily mean the cuts failed — applying a
+   large batch of ripple deletes can leave the panel unresponsive to new
+   requests until it finishes. Don't assume failure; move on to step 4 to
+   check whether the cuts actually landed before retrying or reporting an
+   error.
 
 4. **Check for dead air left behind.** Extract the resulting track and look
    for silence the pass should have removed:
@@ -89,9 +98,10 @@ the currently active project) and read its `frameRate` — needed for step
 
 ## Notes
 
-- `remove-pauses` requires `ANTHROPIC_API_KEY` (used for its Claude
-  phrase/sentence-boundary detection step) — if it's missing, `remove-pauses`
-  itself reports a clear error; nothing special needs to be done here.
+- `remove-pauses` only needs `ANTHROPIC_API_KEY` if `--phrase-boundaries` is
+  passed (its Claude phrase/sentence-boundary detection step) — if it's
+  requested but the key is missing, `remove-pauses` itself reports a clear
+  error; nothing special needs to be done here.
 - Full flag reference for either underlying command: `premiere-cli
   extract-audio-track --help`-equivalent is the `extract-audio-track`
   section of the `premiere-cli` skill; `remove-pauses --help` for the
