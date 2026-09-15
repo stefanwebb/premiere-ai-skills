@@ -190,6 +190,17 @@ optionally, the same intervals from one or more linked video tracks, so
 they stay in sync. Destructive: verify on a duplicate/throwaway sequence
 before running against real footage.
 
+> **Unlink A/V clips before calling this.** On *linked* pairs it silently
+> slips the audio clips' source in-points (observed: 17 of 26 clips, up to
+> −2760 ms) while leaving the picture, the clip count, the duration and
+> `coveragePercent` all correct — so no health metric detects it. Unlink,
+> apply, then relink pair-by-pair. Verify with the offset invariant
+> (`audio.inPointSeconds − video.inPointSeconds` constant across pairs),
+> never with coverage or duration, and treat every `could not be removed`
+> warning as a defect. Full write-up: `docs/BUILD_FINDINGS.md` in the
+> `premiere-cli` repo. `/remove-pauses-from-track` implements the safe
+> sequence end to end.
+
     premiere-cli remove-track-intervals --audio-track-index 0 \
       --intervals-file /tmp/main-mic.cuts.txt
     premiere-cli remove-track-intervals --sequence-name "Sequence 01" \

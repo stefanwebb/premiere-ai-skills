@@ -188,6 +188,23 @@ report the same `startSeconds` (0) and the same `endSeconds`, and that
 duration still equal to the untrimmed length, means a tail survived.
 Re-run `link-selection` afterwards — the razor breaks the A/V link.
 
+**Those checks prove the tails were trimmed. They do NOT prove sync**, and
+must never be reported as if they do. A clip whose source in-point has
+slipped keeps its timeline start, end and duration, so coverage and
+duration stay perfect while the audio drifts by seconds. The check that
+actually tests sync is the offset invariant — for every clip pair:
+
+    audio.inPointSeconds - video.inPointSeconds == recommendedOffsetSeconds
+
+Read both with `get-full-clip-info` and assert it to within ~1 ms. Record
+`recommendedOffsetSeconds` in the hand-off: every later stage that cuts
+this footage (`/remove-pauses-from-track` above all) needs the constant to
+re-verify against, and it cannot be recovered from the timeline afterwards.
+
+**Record that the pairs are LINKED.** Downstream ripple-delete operations
+behave differently on linked clips — `remove-track-intervals` silently
+slips audio in-points on them (see `/remove-pauses-from-track` step 3).
+
 **Do `trim-clip` last, and re-check the in-point after any later edit.**
 `add-to-timeline` and `move-clip-to-track` snap a clip's in-point to a
 video frame boundary — at 25fps that silently rounds the offset by up to
