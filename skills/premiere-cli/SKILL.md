@@ -89,9 +89,23 @@ To actually shorten a clip from the tail, razor and delete:
       --clip-index 1 --ripple false
 
 Then confirm against `get-timeline-summary` — `durationSeconds` and the
-track's `coveragePercent` are what actually move. The in-point path has
-no such problem: trimming the head with `--in-point-seconds` does take
-effect.
+track's `coveragePercent` are what actually move. Trimming the head with
+`--in-point-seconds` does take effect — but see 4.
+
+**4. The in-point and the out-point are stored independently, and
+`trim-clip` sets only the one you pass** (live-diagnosed 2026-09-17).
+After `--in-point-seconds X` on its own, the stored out-point is still
+where it was, so the item's source span is shorter than its timeline
+length by the trim. Premiere plays it correctly while the project is
+open, every read-back looks right, and razors copy the inconsistent pair
+into each piece — until a piece is shorter than the trim, making
+out < in, which Premiere resolves **on the next project load** by
+clamping the in-point to the out-point: a silent slip of the picture
+(56 of 88 clips on that project; the same on earlier ones). Whenever you
+set an in-point, set the out-point to `in + (endSeconds − startSeconds)`
+in the next call (out-point first if the current one is below the new
+in), and verify with `check-sequence-sync`, whose third check is exactly
+`outPointSeconds == inPointSeconds + durationSeconds`.
 
 ## Available commands
 

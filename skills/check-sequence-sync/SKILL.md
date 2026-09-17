@@ -5,8 +5,9 @@ description: Use when asked to check, verify, or audit audio/video sync in a Pre
 
 # /check-sequence-sync
 
-Runs the two checks that actually detect a slipped clip, over every clip on
-one video track and its paired audio track:
+Runs the three checks that actually detect a slipped clip — or one that is
+about to slip — over every clip on one video track and its paired audio
+track:
 
 1. **Sync offset invariant** — for every clip pair (same timeline start),
    `audio.inPointSeconds − video.inPointSeconds` equals the constant sync
@@ -15,8 +16,18 @@ one video track and its paired audio track:
    overlap in source time. When the incoming clip's in-point precedes the
    outgoing clip's out-point, the last N frames of one clip play again at
    the head of the next (heard and seen as a stutter at the cut).
+3. **Stored out-point** — every clip's stored `outPointSeconds` equals
+   `inPointSeconds + durationSeconds`. Premiere keeps the two points
+   independently, and `trim-clip --in-point-seconds` moves only the in-point;
+   razors then copy the inconsistent pair into every piece, and a piece
+   shorter than the offset ends with out < in. Premiere plays such a project
+   correctly until it is **reopened**, at which point it clamps that in-point
+   to the out-point and the picture slips earlier by (offset − duration) with
+   no user action. Checks 1 and 2 pass right up to the reload; this one fails
+   as soon as the fault exists. Reported per clip as `staleOutPoints`, with
+   `inverted: true` on the ones that will slip.
 
-Both are read-only. Duration, clip count and `coveragePercent` **cannot**
+All three are read-only. Duration, clip count and `coveragePercent` **cannot**
 find either problem — a slip moves a clip's source in-point while its
 timeline start, end and duration stay put — so never report a sequence as
 in sync on the strength of those.
@@ -74,6 +85,14 @@ what `premiere-cli trim-clip --clip-index` takes.
 - **Unpaired clips / duration mismatches.** The two tracks no longer have
   the same cut structure; a ripple delete hit one track and not the other.
   Fix the structure first — the sync checks assume it.
+- **Stale out-points, no drift.** The sequence is still in sync *today*.
+  Repair now (below) — it is one `trim-clip` per clip — or the inverted
+  ones will desync themselves the next time the project is opened, and the
+  longer ones will pass the fault on to every clip cut from them.
+- **Drift where video.in == audio.in + duration on short clips only, in-points
+  on whole frames.** That is the post-reload signature of the stale
+  out-point fault: the clamp has already happened. Audio is the reference;
+  repair each video clip's out-point *and* in-point.
 
 ## Repairing
 
@@ -83,20 +102,31 @@ in-point without moving the clip on the timeline:
     premiere-cli trim-clip --sequence-name "<name>" --track-type video \
       --track-index 0 --clip-index <i> --in-point-seconds <value>
 
-After every call assert the returned `newValue.startSeconds`/`endSeconds`
-are unchanged and `inPointSeconds` is the requested value; it worked on
-linked pairs without dragging the other track on the run above, but
-verify rather than assume. Duplicate the sequence first
-(`premiere-cli duplicate-sequence --new-name "<name> before <what>"`),
-then re-run `check-sequence-sync` and `save-project` when it passes.
+**Every in-point you set needs the matching out-point set too**, or you
+have just planted the check-3 fault:
 
-Derive a clip's source out-point as `inPointSeconds + durationSeconds`;
-the `outPointSeconds` Premiere reports goes stale after edits.
+    premiere-cli trim-clip --sequence-name "<name>" --track-type video \
+      --track-index 0 --clip-index <i> --out-point-seconds <value + durationSeconds>
+
+Do the out-point first when the clip's current out-point is below the new
+in-point. For a clip flagged by check 3 alone, its `suggestedFix` gives
+the out-point to set. After every call assert the returned
+`newValue.startSeconds`/`endSeconds` are unchanged and the point is the
+requested value; it worked on linked pairs without dragging the other
+track (88 pairs, 2026-09-17), but verify rather than assume. Duplicate the
+sequence first (`premiere-cli duplicate-sequence --new-name "<name> before
+<what>"`), then re-run `check-sequence-sync` and `save-project` when it
+passes. The clamp happens on project load, so the final proof of a check-3
+repair is a PASS after the user has closed and reopened the project.
+
+For the overlap check the tool derives a clip's source out-point as
+`inPointSeconds + durationSeconds`; the stored `outPointSeconds` is what
+check 3 audits, not something the other checks trust.
 
 ## Report
 
 State PASS/FAIL, the number of pairs, the offset used and whether it was
 given or inferred, and for a FAIL the count of desynced pairs (worst
-drift, in seconds and frames) and the count of overlapping clips per
-track. Never describe a sequence as verified in sync without this tool's
+drift, in seconds and frames), the count of overlapping clips per track,
+and the count of stale out-points per track with how many are inverted. Never describe a sequence as verified in sync without this tool's
 PASS.

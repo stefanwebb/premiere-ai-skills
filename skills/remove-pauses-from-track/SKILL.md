@@ -112,16 +112,28 @@ the currently active project) and read its `frameRate` — needed for step
    `<offset>` is whatever `/synchronize-clips` reported as
    `recommendedOffsetSeconds` for this footage (0 if the audio is not a
    separately-recorded mic); omit it to infer from the majority of pairs.
-   It checks the offset invariant on every pair AND that no clip repeats
-   source already played by the previous clip. Report the worst drift.
+   It checks the offset invariant on every pair, that no clip repeats
+   source already played by the previous clip, AND that every clip's
+   stored out-point is in-point + duration. Report the worst drift.
+
+   That third check matters most here: a source clip whose head was
+   trimmed with `trim-clip --in-point-seconds` alone carries a stored
+   out-point that is short by the trim, every piece the ripple deletes cut
+   from it inherits the fault, and the pieces shorter than the trim end up
+   with out < in — which Premiere "fixes" on the next project load by
+   clamping the in-point, desyncing the picture with no user action. Run
+   `check-sequence-sync` on the SOURCE sequence before cutting, and repair
+   any stale out-point there first (one `trim-clip --out-point-seconds`
+   per clip) rather than on the 88 pieces afterwards.
 
    If pairs are desynced, do NOT rebuild, and do NOT assume the picture is
    the reference: the report says which track's clips still line up
    without overlapping their neighbours, and gives the in-point that slips
    the *other* track back. Apply those with `trim-clip --in-point-seconds`
-   (sets a source in-point without moving the clip on the timeline), keep
-   the clips unlinked while doing it, assert `startSeconds`/`endSeconds`
-   are unchanged after each call, and re-run the check.
+   (sets a source in-point without moving the clip on the timeline) **and
+   `--out-point-seconds` to the new in-point + duration**, keep the clips
+   unlinked while doing it, assert `startSeconds`/`endSeconds` are
+   unchanged after each call, and re-run the check.
 
 6. **Relink the pairs** (if you unlinked in step 3), one pair at a time —
    selecting everything and linking once would group all clips together

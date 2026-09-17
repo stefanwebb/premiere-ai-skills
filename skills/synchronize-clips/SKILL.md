@@ -129,8 +129,11 @@ synced sequence built from them. If so, use `premiere-cli` (see the
 5. `move-clip-to-track` — move the mic audio clip onto the now-empty
    audio track.
 6. `trim-clip` — set **both the in-point and the out-point** of the video
-   clip and of the mic audio clip, per the arithmetic below.
+   clip and of the mic audio clip, per the arithmetic below. Both, always:
+   an in-point set on its own leaves a fault that surfaces days later (see
+   "Set the out-point too").
 7. `link-selection` — re-link the trimmed video and mic audio clips.
+8. `check-sequence-sync` — the only acceptable proof the sync is done.
 
 Confirm the plan with the user before running it — it mutates the
 sequence — and prefer computing exact trim points from the reported
@@ -156,11 +159,21 @@ length.** Get the source durations from `ffprobe` (or
     cameraOut = cameraIn + L
     micOut    = micIn    + L
 
-Set each head with `trim-clip --in-point-seconds`. **The tails need a
-razor, not a trim** — `trim-clip --out-point-seconds` writes the source
-out-point and reports `verified: true` but leaves the clip its original
-length on the timeline (see the `premiere-cli` skill's Time precision
-section). Cut each clip at `L` and delete the remainder:
+Set each head with `trim-clip --in-point-seconds`, and **immediately set
+the same clip's out-point** to `in-point + (endSeconds − startSeconds)`:
+
+    premiere-cli trim-clip --track-type video --track-index 0 --clip-index 0 \
+      --in-point-seconds <cameraIn>
+    premiere-cli trim-clip --track-type video --track-index 0 --clip-index 0 \
+      --out-point-seconds <cameraIn + timeline length of the clip>
+
+(and the same pair for the mic clip with `micIn`). See "Set the out-point
+too" below for why the second call is not optional.
+
+**The tails need a razor, not a trim** — `trim-clip --out-point-seconds`
+writes the source out-point and reports `verified: true` but leaves the
+clip its original length on the timeline (see the `premiere-cli` skill's
+Time precision section). Cut each clip at `L` and delete the remainder:
 
     premiere-cli split-clip --track-type video --track-index 0 --seconds <L>
     premiere-cli remove-from-timeline --track-type video --track-index 0 \
@@ -181,6 +194,28 @@ i.e. the mic loses 6.032 s off its head and the camera loses 2.880 s off
 its tail. Note which clip gets trimmed at which end is not fixed — it
 depends on which device stopped last, so compute it, don't assume.
 
+### Set the out-point too
+
+Premiere stores a track item's source in-point and out-point
+independently. `trim-clip --in-point-seconds` moves the in-point and
+nothing else, so after a head trim of K seconds the clip's stored span
+`out − in` is K shorter than its timeline length. Nothing looks wrong:
+the clip plays from the new in-point, every DOM read-back is what you
+asked for, and the offset invariant passes. But every razor from then on
+(the silence removal above all) derives each piece's in and out from that
+inconsistent pair, so each piece gets `in = correct` and
+`out = correct − K`. **Any piece shorter than K ends up with out < in, and
+the next time the project is opened Premiere resolves that by clamping the
+in-point to the out-point** — the picture slips earlier by (K − duration),
+silently, with no user action. On 2026-09-17 that took 56 of 88 clips in a
+sequence that had passed the offset check the day before, and the same
+thing had hit earlier projects.
+
+So the rule is: **whenever you set an in-point, set the out-point to
+`in-point + timeline length` in the same breath** (out-point first if the
+current out-point is already below the new in-point), and verify with
+`check-sequence-sync`, whose third check is exactly `out − in == duration`.
+
 **Verify before declaring done:** re-read both clips and check they
 report the same `startSeconds` (0) and the same `endSeconds`, and that
 `get-timeline-summary` shows `coveragePercent` 100 on both tracks and a
@@ -196,10 +231,14 @@ actually tests sync is the offset invariant — for every clip pair:
 
     audio.inPointSeconds - video.inPointSeconds == recommendedOffsetSeconds
 
-Read both with `get-full-clip-info` and assert it to within ~1 ms. Record
-`recommendedOffsetSeconds` in the hand-off: every later stage that cuts
-this footage (`/remove-pauses-from-track` above all) needs the constant to
-re-verify against, and it cannot be recovered from the timeline afterwards.
+Run `/check-sequence-sync` with `--offset recommendedOffsetSeconds` and
+require its PASS — it asserts the invariant on every pair, that no clip
+repeats its neighbour's source, **and that every stored out-point equals
+in-point + duration** (the check that would have caught the slip above
+while it was still one clip). Record `recommendedOffsetSeconds` in the
+hand-off: every later stage that cuts this footage
+(`/remove-pauses-from-track` above all) needs the constant to re-verify
+against, and it cannot be recovered from the timeline afterwards.
 
 **Record that the pairs are LINKED.** Downstream ripple-delete operations
 behave differently on linked clips — `remove-track-intervals` silently
@@ -212,4 +251,6 @@ video frame boundary — at 25fps that silently rounds the offset by up to
 `trim-clip --in-point-seconds` writes the exact value (it sets ticks
 directly and verifies the read-back), so apply it after the clip is on
 its final track and confirm `inPointSeconds` in the response matches
-`recommendedOffsetSeconds` before declaring the sync done.
+`recommendedOffsetSeconds` — then set the out-point again too, since a
+placement command that re-snapped the in-point has just desynchronised
+the pair a second time.
